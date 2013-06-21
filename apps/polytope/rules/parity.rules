@@ -1,0 +1,340 @@
+# Copyright (c) 2013 Silke Horn
+# http://solros.de/polymake/poly_optimization
+# 
+# This file is part of the polymake extension poly_optimization.
+# 
+# poly_optimization is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# poly_optimization is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with poly_optimization.  If not, see <http://www.gnu.org/licenses/>.
+
+CREDIT poly_optimization
+
+# @category Optimization
+# The parity polytope of dimension //d// and parity //par//.
+#
+# Contained in extension 'poly_optimization'.
+# @param Int d
+# @param Bool par parity
+# @return Polytope
+user_function parity_polytope {
+
+	my $d = shift;
+	my $par = shift;
+	
+	my $vs = parity_subsets(int_set($d), $par);
+	my $n = @$vs;
+	
+	my $v = new Matrix($n, $d+1);
+	
+	for (my $i = 0; $i<$n; ++$i) {
+		$v->[$i][0] = 1;
+		
+		my $c = $vs->[$i];
+		foreach my $elt (@$c) {
+			$v->[$i][$elt] = 1;
+		}
+	}
+	
+	return new Polytope(POINTS=>$v);
+}
+
+
+# @category Optimization
+# The parity polytope of dimension //d//.
+#
+# Contained in extension 'poly_optimization'.
+# @param Set s
+# @param Int d
+# @param Bool par parity
+# @return Polytope
+sub parity_polytope_set {
+
+	my $s = shift;
+	my $d = shift;
+	
+	my $n = @$s;
+	
+	my $v = new Matrix($n, $d+1);
+	
+	for (my $i = 0; $i<$n; ++$i) {
+		$v->[$i][0] = 1;
+		
+		my $c = $s->[$i];
+		foreach my $elt (@$c) {
+			$v->[$i][$elt] = 1;
+		}
+	}
+	
+	return new Polytope(POINTS=>$v);
+}
+
+
+sub set_product {
+	my $s1 = shift;
+	my $s2 = shift;
+	
+	my @ret = ();
+	
+	foreach my $i (@$s1) {
+		foreach my $j (@$s2) {
+			push @ret, $i+$j;
+		}
+	}
+	
+	return \@ret;
+}
+
+# @category Optimization
+# The solution of the equation ...
+#
+# Contained in extension 'poly_optimization'.
+# @param Int n ambient dimension
+# @param Set v coordinates spanning the subspace
+# @param Bool par parity
+# @return Polytope
+user_function parity_polytope_subspace {
+	
+	my $n = shift;
+	my $v = new Set(shift);
+	my $par = shift;
+	
+	my $d = @$v;
+	my $p = parity_polytope($d, $par);
+		
+	my $q = product($p, cube($n-$d, 1, 0));
+	
+	
+	
+	my $t = new Matrix($n+1,$n+1);
+	$t->[0][0]=1;
+	
+	my $i = 1;
+	foreach my $c (@$v) {
+		$t->[$i][$c]=1;
+		++$i;
+	}
+	foreach my $c (@{complement($v,$n)}) {
+		$t->[$i][$c]=1;
+		++$i;
+	}
+#	print "t = \n$t\n";
+
+	return new Polytope(VERTICES=>($q->VERTICES)*$t);
+}
+
+
+# @category Optimization
+# The solution of two xor equations with overlap //ol// -- slow version.
+#
+# Contained in extension 'poly_optimization'.
+# @param Int d1 number of variables in the first equation
+# @param Int d2 number of variables in the second equation
+# @param Bool p1 parity of the first equation
+# @param Bool p2 parity of the second equation
+# @param Int ol number of variables in both equations (overlap)
+# @return Polytope
+user_function two_parity_polytopes_slow {
+	my $d1 = shift;
+	my $d2 = shift;
+	my $p1 = shift;
+	my $p2 = shift;
+	my $ol = shift;
+	
+	my $n = $d1 + $d2 - $ol;
+	
+	my $poly1 = parity_polytope_subspace($n, int_set($d1), $p1);
+	my $poly2 = parity_polytope_subspace($n, int_set_min($n, $d1 - $ol + 1), $p2);
+	
+#	print $poly1->VERTICES; print "\n";
+#	print $poly2->VERTICES; print "\n";
+	
+	my $intersect = intersection($poly1, $poly2);
+	
+	my $lps = $intersect->LATTICE_POINTS;
+		
+	return new Polytope(POINTS=>$lps);
+}
+
+
+# @category Optimization
+# The solution of two xor equations with overlap //ol//.
+#
+# Contained in extension 'poly_optimization'.
+# @param Int d1 number of variables in the first equation
+# @param Int d2 number of variables in the second equation
+# @param Bool p1 parity of the first equation
+# @param Bool p2 parity of the second equation
+# @param Int ol number of variables in both equations (overlap)
+# @return Polytope
+user_function two_parity_polytopes {
+	my $d1 = shift;
+	my $d2 = shift;
+	my $p1 = shift;
+	my $p2 = shift;
+	my $ol = shift;
+	
+	my $n = $d1 + $d2 - $ol;
+	my $k = $d1 - $ol + 1;
+	
+	my $is1 = int_set($d1);
+	my $is2 = int_set_min($n, $k);
+	my $is3 = int_set_min($n, $d1+1);
+	my $is4 = int_set($d1-$ol);
+	
+	my $s1 = parity_subsets($is1, $p1);
+	my $s2 = parity_subsets($is2, $p2);
+	
+	my $t1 = all_subsets($is3);
+	my $t2 = all_subsets($is4);
+	
+	my $u1 = set_product($s1, $t1);
+	my $u2 = set_product($s2, $t2);
+	
+	my $v1 = new Set<Set<Int>>(@$u1);
+	my $v2 = new Set<Set<Int>>(@$u2);
+	#print "s1: @$s1\ns2: @$s2\nt1: @$t1\nt2: @$t2\nu1: @$u1\nu2: @$u2\n";
+	my $s = $v1 * $v2;
+	
+	#print "s: @$s\n";
+
+	return parity_polytope_set($s, $n);
+}
+
+
+sub int_set_min {
+	my $d = shift;
+	my $m = shift;
+	my $r = new Set();
+	
+	for (my $i = $m; $i <= $d; ++$i) {$r+=$i;}
+	
+	return $r;	
+}
+
+sub int_set {
+	my $d = shift;
+	
+	return int_set_min($d, 1);
+}
+
+
+sub complement {
+	my $s = shift;
+	my $d = shift;
+	
+	return int_set($d)-$s;
+}
+
+# @category Utilities
+# All subsets of [//d//] = {1,...,//d//}.
+#
+# Contained in extension 'poly_optimization'.
+# @param Int d
+# @return ARRAY<Set<Int>>
+user_function all_subsets_d {
+	my $d = shift;
+	my @ret = ();
+
+	if ($d == 0) {
+		push @ret, new Set();
+		return \@ret;
+	}
+	
+	my $all = all_subsets_d($d-1);
+	foreach my $c (@$all) {
+		push @ret, $c;
+		my $n = $c+ $d;
+		push @ret, $n;
+	}
+	return \@ret;
+}
+
+# @category Utilities
+# All subsets of a set //s//.
+#
+# Contained in extension 'poly_optimization'.
+# @param Set s
+# @return ARRAY<Set>
+user_function all_subsets {
+	my ($set) = @_;
+
+	my @ret = ();
+
+	if (@$set == 0) {
+		push @ret, new Set();	
+		return \@ret;
+	}
+	
+	my $fst = $set->[0];
+	
+	my $all = all_subsets($set-$fst);
+	foreach my $c (@$all) {
+		push @ret, $c;
+		push @ret, $c + $fst;
+	}
+	return \@ret;
+}
+
+# @category Utilities
+# All subsets of a set //s// of given parity //par//.
+#
+# Contained in extension 'poly_optimization'.
+# @param Set s
+# @param Bool par parity
+# @return ARRAY<Set>
+user_function parity_subsets {
+	my $s = shift;
+	my $par = shift;	# 0 or 1
+	
+	my $fst = $s->[0];
+	my $all = all_subsets($s - $fst);
+
+	my @ret = ();
+	
+	foreach my $c (@$all) {
+		
+		if ($c->size%2 == $par) {
+			push @ret, $c;
+		} else {
+			push @ret, $c+$fst;
+		}
+	}
+
+	return \@ret;
+}
+
+# @category Utilities
+# All subsets of [//d//] = {1,...,//d//} of given parity.
+#
+# Contained in extension 'poly_optimization'.
+# @param Int d
+# @param Bool par parity, 0 or 1
+# @return ARRAY<Set<Int>>
+user_function parity_subsets_d {
+	my $d=shift;
+	my $par=shift;	# 0 or 1
+	
+	my $all = all_subsets_d($d-1);
+
+	my @ret = ();
+	
+	foreach my $c (@$all) {
+		
+		if ($c->size%2 == $par) {
+			push @ret, $c;
+		} else {
+			push @ret, $c+$d;
+		}
+	}
+
+	return \@ret;
+}

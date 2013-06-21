@@ -1,0 +1,131 @@
+# Copyright (c) 2013 Silke Horn
+# http://solros.de/polymake/poly_optimization
+# 
+# This file is part of the polymake extension poly_optimization.
+# 
+# poly_optimization is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# poly_optimization is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with poly_optimization.  If not, see <http://www.gnu.org/licenses/>.
+
+CREDIT poly_optimization
+
+# @category Producing a new polyhedron from others
+# Adds a new inequality //ineq// to a polyhedron //p//.
+# Useful for branch and bound demos.
+# 
+# Contained in extension ''mypolytopes''.
+# @param Polytope p
+# @param Array ineq
+# @return Polytope
+user_function add_ineq {
+	my ($p, $ineq)=@_;
+	my $A=new Matrix<Rational>(($p->FACETS)/(new Vector<Rational>(@$ineq)));
+	
+	if (my $aff=$p->AFFINE_HULL) {
+		my $B=new Matrix<Rational>($A/$aff/(-$aff));
+		$A=$B;
+	}
+	
+	my $r=new Polytope<Rational>(
+	INEQUALITIES=>$A,
+	LP=>new LinearProgram<Rational>(LINEAR_OBJECTIVE=>$p->LP->LINEAR_OBJECTIVE));
+	return $r;
+}
+
+
+
+
+
+
+# @category Visualization
+# Visualises a polytope //p// together with the two hyperplanes x<sub>//i//</sub>=//l// and x<sub>//i//</sub>=//u//.
+# Useful for branch and bound demos.
+# 
+# Contained in extension ''mypolytopes''.
+# @param Polytope p must be 3-dimensional
+# @param Int i the index of the variable in the hyperplanes
+# @param Int l lower bound
+# @param Int u upper bound
+# @return Visual::Polytope
+user_function visual_hps {
+	my $hpcol='white';
+	my ($p, $ind, $l, $u)=@_;
+	
+	my $h1=hyperplane($ind,$l);
+	my $h2=hyperplane($ind,$u);
+	
+	compose($p->VISUAL(VertexStyle=>'hidden', FacetColor=>'tud1b'), $h1->VISUAL(FacetColor=>$hpcol, VertexStyle=>'hidden', FacetTransparency=>0.5), $h2->VISUAL(FacetColor=>$hpcol, VertexStyle=>'hidden', FacetTransparency=>0.5));
+}
+
+# @category Visualization
+# Visualises a polytope //p// together with the two hyperplanes x<sub>//i//</sub>=//l// and x<sub>//i//</sub>=//u//.
+# Useful for branch and bound demos.
+# 
+# Contained in extension ''mypolytopes''.
+# @param Polytope p must be 3-dimensional
+# @param Int i the index of the variable in the hyperplanes
+# @param Int l lower bound
+# @param Int u upper bound
+# @return Visual::Polytope
+user_function visual_branch {
+	my ($p, $ind, $l, $u)=@_;
+
+	my $d=$p->AMBIENT_DIM+1;
+	my $h1 = ineq($ind, $l, $d, 1);
+	my $h2 = ineq($ind, $u, $d, 0);
+
+	my $p1=add_ineq($p, $h1);
+	my $p2=add_ineq($p, $h2);
+
+	compose($p1->VISUAL(FacetColor=>'opti', VertexStyle=>'hidden'), $p2->VISUAL(FacetColor=>'opti', VertexStyle=>'hidden'));
+}
+
+sub ineq {
+	my ($ind, $b, $d, $leq) = @_;
+	
+	my @r=();
+	for (my $i=0; $i<$d; ++$i) {
+		push @r, 0;
+	}
+	
+	if ($leq) {
+		$r[$ind]=-1;
+		$r[0]=$b;
+	} else {
+		$r[$ind]=1;
+		$r[0]=-$b;
+	}
+	return \@r;
+}
+
+sub hyperplane {
+	my ($ind,$val)=@_;
+	my $a=2;
+	my $c=cube(2,2,-2);
+	my @cube=@{$c->VERTICES};
+	my @vs=();
+	for (my $i=0; $i<@cube; ++$i) {
+		my @v=();
+		my $k=0;
+		for (my $j=0;$j<4;++$j) {
+			if ($j==$ind) {
+				push(@v,$val);
+			} else {
+				push(@v,$cube[$i]->[$k]);
+				$k++;
+			}
+		}
+		push(@vs,\@v);
+	}
+	return new Polytope<Rational>(VERTICES=>\@vs);
+}
+

@@ -1,0 +1,81 @@
+# Copyright (c) 2013 Silke Horn
+# http://solros.de/polymake/poly_optimization
+# 
+# This file is part of the polymake extension poly_optimization.
+# 
+# poly_optimization is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# poly_optimization is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with poly_optimization.  If not, see <http://www.gnu.org/licenses/>.
+
+CREDIT poly_optimization
+  Written by Silke Horn.
+  http://solros.de/polymake/poly_optimization
+
+label poly_optimization
+
+
+
+INCLUDE
+	bb.rules
+	parity.rules
+
+
+
+object Polytope {
+
+# @category Utilities
+# Returns true if //p// is contained in the polytope.
+# 
+# Contained in extension ''poly_optimization''.
+# @param Vector p
+# @return Bool
+#user_method CONTAINS_POINT : FACETS {
+#	my ($this, $j)=@_;
+#	my @f = @{$this->FACETS};
+#	
+#	foreach (@f) {
+#		unless (satisfies_ineq($_,$j)) {
+#			return 0;
+#		}
+#	}
+#	return 1;
+#}
+
+
+}	# end Polytope
+
+
+# @category Utilities
+# Returns true if //point// satisfies the equation //eq//.
+# 
+# Contained in extension ''poly_optimization''.
+# @param Vector eq
+# @param Vector point
+# @return Bool
+user_function satisfies_eq {
+	my ($eq, $point)=@_;
+	my $sp= $eq * $point;
+	return ($sp == 0);
+}
+
+# @category Utilities
+# Returns true if //point// satisfies the inequality //ineq//.
+# 
+# Contained in extension ''poly_optimization''.
+# @param Vector ineq
+# @param Vector point
+# @return Bool
+user_function satisfies_ineq {
+	my ($eq, $point)=@_;
+	my $sp= $eq * $point;
+	return ($sp >= 0);
+}
